@@ -1,4 +1,5 @@
 class MoviesController < ApplicationController
+  helper_method :sort_column, :sort_direction
 
   def movie_params
     params.require(:movie).permit(:title, :rating, :description, :release_date)
@@ -11,7 +12,44 @@ class MoviesController < ApplicationController
   end
 
   def index
-    @movies = Movie.all
+    @sort = sort_column + " " + sort_direction
+    puts "sort param " + @sort
+    @all_ratings = Movie.all_ratings
+    @selected_ratings = params[:ratings] || session[:ratings] || {}
+
+    if @selected_ratings == {}
+      @selected_ratings = Hash[@all_ratings.map {|rating| [rating, rating]}]
+    end
+    
+    puts "filter param ", @selected_ratings
+    
+    if params[:ratings] != session[:ratings]
+      session[:ratings] = @selected_ratings
+      redirect_to :ratings => @selected_ratings , :sort => sort_column, :direction => sort_direction and return
+    end
+    
+    @marked = @selected_ratings.keys
+    @movies = Movie.order(@sort).with_ratings(@marked)
+  end
+
+  def sortable_columns
+    ["title", "release_date"]
+  end
+
+  def sort_column
+    @sort_title = params[:sort] || session[:sort] || "title"
+    if params[:sort] != session[:sort]
+      session[:sort] = @sort_title
+    end 
+    @sort_title
+  end
+
+  def sort_direction
+    @sort_direction = params[:direction] || session[:direction] || "asc"
+    if params[:direction] != session[:direction]
+      session[:direction] = @sort_direction
+    end 
+    @sort_direction
   end
 
   def new
@@ -41,5 +79,4 @@ class MoviesController < ApplicationController
     flash[:notice] = "Movie '#{@movie.title}' deleted."
     redirect_to movies_path
   end
-
 end
