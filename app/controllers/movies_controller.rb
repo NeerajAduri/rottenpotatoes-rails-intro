@@ -1,5 +1,4 @@
 class MoviesController < ApplicationController
-  helper_method :sort_column, :sort_direction
 
   def movie_params
     params.require(:movie).permit(:title, :rating, :description, :release_date)
@@ -12,44 +11,43 @@ class MoviesController < ApplicationController
   end
 
   def index
-    @sort = sort_column + " " + sort_direction
-    puts "sort param " + @sort
+    @movies = Movie.all
     @all_ratings = Movie.all_ratings
-    @selected_ratings = params[:ratings] || session[:ratings] || {}
-
-    if @selected_ratings == {}
-      @selected_ratings = Hash[@all_ratings.map {|rating| [rating, rating]}]
+    
+    if params[:ratings]
+      @ratings_filter = params[:ratings].keys
+    else
+      if session[:ratings]
+        @ratings_filter = session[:ratings]
+      else
+        @ratings_filter = @all_ratings
+      end
     end
     
-    puts "filter param ", @selected_ratings
-    
-    if params[:ratings] != session[:ratings]
-      session[:ratings] = @selected_ratings
-      redirect_to :ratings => @selected_ratings , :sort => sort_column, :direction => sort_direction and return
+    if @ratings_filter!=session[:ratings]
+      session[:ratings] = @ratings_filter
     end
     
-    @marked = @selected_ratings.keys
-    @movies = Movie.order(@sort).with_ratings(@marked)
-  end
-
-  def sortable_columns
-    ["title", "release_date"]
-  end
-
-  def sort_column
-    @sort_title = params[:sort] || session[:sort] || "title"
-    if params[:sort] != session[:sort]
-      session[:sort] = @sort_title
-    end 
-    @sort_title
-  end
-
-  def sort_direction
-    @sort_direction = params[:direction] || session[:direction] || "asc"
-    if params[:direction] != session[:direction]
-      session[:direction] = @sort_direction
-    end 
-    @sort_direction
+    @movies = @movies.where('rating in (?)', @ratings_filter)
+    
+    if params[:sort_by]
+      @sorting = params[:sort_by]
+    else
+      @sorting = session[:sort_by]
+    end
+    
+    if @sorting!=session[:sort_by]
+      session[:sort_by] = @sorting
+    end
+    
+    if @sorting == 'title'
+          @movies = @movies.order(@sorting)
+          @title_sort = 'hilite'
+    elsif @sorting == 'release_date'
+          @movies = @movies.order(@sorting)
+          @release_sort = 'hilite'
+    end
+    
   end
 
   def new
@@ -79,4 +77,5 @@ class MoviesController < ApplicationController
     flash[:notice] = "Movie '#{@movie.title}' deleted."
     redirect_to movies_path
   end
+
 end
